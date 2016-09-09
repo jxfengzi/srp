@@ -3,6 +3,6 @@
 # build
 #
 #-----------------------------------------------------------------------------
-ADD_SUBDIRECTORY(tiny_base)
+ADD_SUBDIRECTORY(Tiny)
 ADD_SUBDIRECTORY(srp)
 ADD_SUBDIRECTORY(test)

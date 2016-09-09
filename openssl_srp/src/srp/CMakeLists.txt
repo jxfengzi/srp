@@ -26,7 +26,16 @@ SET(SRC
 #----------------------------------------------------------------------------
 # shared library
 #----------------------------------------------------------------------------
-ADD_LIBRARY(src_shared SHARED ${SRC})
-SET_TARGET_PROPERTIES(src_shared PROPERTIES OUTPUT_NAME "srp")
-SET_TARGET_PROPERTIES(src_shared PROPERTIES LINKER_LANGUAGE C)
-TARGET_LINK_LIBRARIES(src_shared ${OPENSSL_LIB} ${OS_LIB})
+ADD_LIBRARY(srp_shared SHARED ${SRC})
+SET_TARGET_PROPERTIES(srp_shared PROPERTIES OUTPUT_NAME "srp")
+SET_TARGET_PROPERTIES(srp_shared PROPERTIES LINKER_LANGUAGE C)
+TARGET_LINK_LIBRARIES(srp_shared ${OPENSSL_LIB} ${OS_LIB} tiny_static)
+
+#-----------------------------------------------------------------------------
+#
+# test
+#
+#-----------------------------------------------------------------------------
+ADD_EXECUTABLE(test_srp test.c)
+SET_TARGET_PROPERTIES(test_srp PROPERTIES LINKER_LANGUAGE C)
+TARGET_LINK_LIBRARIES(test_srp srp_shared ${OS_LIB})

@@ -233,13 +233,14 @@ static int run_srp(const char *username, const char *client_pass,
     BN_clear_free(Kclient);
     BN_clear_free(Kserver);
     BN_clear_free(x);
+    BN_clear_free(a);
+    BN_clear_free(b);
+    BN_clear_free(v);
+
     BN_free(u);
     BN_free(A);
-    BN_clear_free(a);
     BN_free(B);
-    BN_clear_free(b);
     BN_free(s);
-    BN_clear_free(v);
 
     return ret;
 }

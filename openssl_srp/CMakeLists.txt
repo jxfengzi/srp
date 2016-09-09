@@ -99,7 +99,8 @@ ENDIF(WIN32)
 SET(OPENSSL_INC ${PROJECT_SOURCE_DIR}/../../openssl/include)
 MESSAGE(STATUS "openssl_inc: ${OPENSSL_INC}")
 INCLUDE_DIRECTORIES(${OPENSSL_INC})
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/tiny_base)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/Tiny/Base)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/Tiny/Log)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/srp)
 
 #--------------------------------------------------------------------------------------

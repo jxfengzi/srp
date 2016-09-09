@@ -18,15 +18,19 @@
 #include "tiny_base.h"
 #include "srp_api.h"
 
-
 TINY_BEGIN_DECLS
 
 
 struct _SrpServer;
 typedef struct _SrpServer SrpServer;
 
-SRP_API SrpServer *SrpServer_New(void);
+SRP_API SrpServer *SrpServer_New(const char *id, const char *username, const char *password);
 SRP_API void SrpServer_Delete(SrpServer *thiz);
+
+SRP_API TinyRet SrpServer_generate_s(SrpServer *thiz, char **s_hex, size_t *s_len);
+SRP_API TinyRet SrpServer_generate_B(SrpServer *thiz, char **B_hex, size_t *B_len);
+SRP_API TinyRet SrpServer_compute_u(SrpServer *thiz, const char *A_hex, char **u_hex, size_t *u_len);
+SRP_API TinyRet SrpServer_compute_S(SrpServer *thiz, char **S_hex, size_t *S_len);
 
 
 TINY_END_DECLS

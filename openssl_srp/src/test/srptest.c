@@ -23,6 +23,8 @@ int main(int argc, char *argv[])
 # include <openssl/srp.h>
 # include <openssl/rand.h>
 # include <openssl/err.h>
+# include <openssl/sha.h>
+# include <openssl/evp.h>
 
 static void showbn(const char *name, const BIGNUM *bn)
 {
@@ -30,6 +32,49 @@ static void showbn(const char *name, const BIGNUM *bn)
     fputs(" = ", stdout);
     BN_print_fp(stdout, bn);
     putc('\n', stdout);
+}
+
+
+/* server & client  */
+BIGNUM *SRP_Ex_Calc_K(const BIGNUM *S)
+{
+    unsigned char digest[SHA512_DIGEST_LENGTH];
+    unsigned char *tmp = NULL;
+    EVP_MD_CTX *ctxt = NULL;
+    int longS = BN_num_bytes(S);
+    BIGNUM *res = NULL;
+
+    ctxt = EVP_MD_CTX_new();
+    if (ctxt == NULL)
+    {
+        return NULL;
+    }
+
+    if ((tmp = OPENSSL_malloc(longS)) == NULL)
+    {
+        goto err;
+    }
+
+    BN_bn2bin(S, tmp);
+
+    if (!EVP_DigestInit_ex(ctxt, EVP_sha512(), NULL) || !EVP_DigestUpdate(ctxt, tmp, longS))
+    {
+        goto err;
+    }
+
+    memset(tmp, 0, longS);
+
+    if (!EVP_DigestFinal_ex(ctxt, digest, NULL))
+    {
+        goto err;
+    }
+
+    res = BN_bin2bn(digest, sizeof(digest), NULL);
+
+err:
+    OPENSSL_free(tmp);
+    EVP_MD_CTX_free(ctxt);
+    return res;
 }
 
 # define RANDOM_SIZE 32         /* use 256 bits on each side */
@@ -48,6 +93,7 @@ static int run_srp(const char *username, const char *client_pass,
     BIGNUM *B = NULL;
     BIGNUM *Kclient = NULL;
     BIGNUM *Kserver = NULL;
+    BIGNUM *K = NULL;
     unsigned char rand_tmp[RANDOM_SIZE];
 
     /* use builtin 1024-bit params */
@@ -222,14 +268,23 @@ static int run_srp(const char *username, const char *client_pass,
     Kserver = SRP_Calc_server_key(A, v, u, b, GN->N);
     showbn("Server's key", Kserver);
 
+    K = SRP_Ex_Calc_K(Kserver); 
+    if (K != NULL) 
+    { 
+        showbn("Session Key", K); 
+    }
+
     if (BN_cmp(Kclient, Kserver) == 0) {
         ret = 0;
     } else {
         fprintf(stderr, "Keys mismatch\n");
         ret = 1;
     }
+
+
 #endif
 
+    BN_clear_free(K);
     BN_clear_free(Kclient);
     BN_clear_free(Kserver);
     BN_clear_free(x);

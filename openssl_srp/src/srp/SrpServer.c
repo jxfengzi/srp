@@ -33,6 +33,7 @@ struct _SrpServer
     BIGNUM     * B;
     BIGNUM     * u;
     BIGNUM     * S;
+    BIGNUM     * K;
 };
 
 static TinyRet SrpServer_Construct(SrpServer *thiz, const char *id, const char *username, const char *password)
@@ -59,6 +60,11 @@ static TinyRet SrpServer_Construct(SrpServer *thiz, const char *id, const char *
 static void SrpServer_Dispose(SrpServer *thiz)
 {
     RETURN_IF_FAIL(thiz);
+
+    if (thiz->K != NULL)
+    {
+        BN_clear_free(thiz->K);
+    }
 
     if (thiz->S != NULL)
     {
@@ -280,6 +286,86 @@ TinyRet SrpServer_compute_S(SrpServer *thiz, char **S, size_t *S_len)
         *S = malloc(*S_len + 1);
         memset(*S, 0, *S_len + 1);
         strncpy(*S, hex, *S_len);
+        OPENSSL_free(hex);
+    }
+
+    return TINY_RET_OK;
+}
+
+# include <openssl/sha.h>
+# include <openssl/evp.h>
+static BIGNUM *SRP_Ex_Calc_K(const BIGNUM *S)
+{
+    BIGNUM *res = NULL;
+
+    do
+    {
+        unsigned char digest[SHA512_DIGEST_LENGTH];
+        unsigned char *tmp = NULL;
+        EVP_MD_CTX *ctxt = NULL;
+        int longS = BN_num_bytes(S);
+
+        ctxt = EVP_MD_CTX_new();
+        if (ctxt == NULL)
+        {
+            break;
+        }
+
+        if ((tmp = OPENSSL_malloc(longS)) == NULL)
+        {
+            EVP_MD_CTX_free(ctxt);
+            break;
+        }
+
+        BN_bn2bin(S, tmp);
+
+        if (!EVP_DigestInit_ex(ctxt, EVP_sha512(), NULL) || !EVP_DigestUpdate(ctxt, tmp, longS))
+        {
+            OPENSSL_free(tmp);
+            EVP_MD_CTX_free(ctxt);
+            break;
+        }
+
+        memset(tmp, 0, longS);
+
+        if (!EVP_DigestFinal_ex(ctxt, digest, NULL))
+        {
+            OPENSSL_free(tmp);
+            EVP_MD_CTX_free(ctxt);
+            break;
+        }
+
+        res = BN_bin2bn(digest, sizeof(digest), NULL);
+    } while (0);
+
+    return res;
+}
+
+TinyRet SrpServer_compute_K(SrpServer *thiz, char **K_hex, size_t *K_len)
+{
+    RETURN_VAL_IF_FAIL(thiz, TINY_RET_E_ARG_NULL);
+    RETURN_VAL_IF_FAIL(K_hex, TINY_RET_E_ARG_NULL);
+    RETURN_VAL_IF_FAIL(K_len, TINY_RET_E_ARG_NULL);
+
+    if (thiz->S == NULL)
+    {
+        LOG_E(TAG, "S is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    thiz->K = SRP_Ex_Calc_K(thiz->S);
+    if (thiz->K == NULL)
+    {
+        LOG_E(TAG, "K is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    {
+        char *hex = BN_bn2hex(thiz->K);
+        *K_len = strlen(hex);
+        *K_hex = malloc(*K_len + 1);
+        memset(*K_hex, 0, *K_len + 1);
+        strncpy(*K_hex, hex, *K_len);
         OPENSSL_free(hex);
     }
 

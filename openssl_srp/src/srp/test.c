@@ -18,15 +18,19 @@ int main()
     char *A = NULL;
     char *server_u = NULL;
     char *server_S = NULL;
+    char *server_K = NULL;
     char *client_u = NULL;
     char *client_S = NULL;
+    char *client_K = NULL;
     size_t s_len = 0;
     size_t B_len = 0;
     size_t A_len = 0;
     size_t server_u_len = 0;
     size_t server_S_len = 0;
+    size_t server_K_len = 0;
     size_t client_u_len = 0;
     size_t client_S_len = 0;
+    size_t client_K_len = 0;
 
     server = SrpServer_New(MODULUS, S_USERNAME, S_PASSWORD);
     if (server == NULL)
@@ -90,9 +94,9 @@ int main()
     printf("STEP 4. Client send A -> Server\n");
 
     /**
-     * STEP 5. Server compute u(Random Scrambling Parameter) & S(Premaster Secret)
+     * STEP 5. Server compute u(Random Scrambling Parameter) & S(Premaster Secret) & K(Session Key)
      */
-    printf("STEP 5. Server compute u(Random Scrambling Parameter) & S(Premaster Secret)\n");
+    printf("STEP 5. Server compute u(Random Scrambling Parameter) & S(Premaster Secret) & K(Session Key)\n");
 
     if (RET_FAILED(SrpServer_compute_u(server, A, &server_u, &server_u_len)))
     {
@@ -108,10 +112,17 @@ int main()
     }
     printf("    server S = %s\n", server_S);
 
+    if (RET_FAILED(SrpServer_compute_K(server, &server_K, &server_K_len)))
+    {
+        printf("SrpServer_compute_K failed\n");
+        return 0;
+    }
+    printf("    server K = %s\n", server_K);
+
     /**
-     * STEP 6. client compute u(Random Scrambling Parameter) & S(Premaster Secret)
+     * STEP 6. client compute u(Random Scrambling Parameter) & S(Premaster Secret) & K(Session Key)
      */
-    printf("STEP 6. client compute u(Random Scrambling Parameter) & S(Premaster Secret)\n");
+    printf("STEP 6. client compute u(Random Scrambling Parameter) & S(Premaster Secret) & K(Session Key)\n");
 
     if (RET_FAILED(SrpClient_compute_u(client, B, &client_u, &client_u_len)))
     {
@@ -127,10 +138,17 @@ int main()
     }
     printf("    client S = %s\n", client_S);
 
+    if (RET_FAILED(SrpClient_compute_K(client, &client_K, &client_K_len)))
+    {
+        printf("SrpClient_compute_K failed\n");
+        return 0;
+    }
+    printf("    client K = %s\n", client_K);
+
     /**
-     * STEP 7. check u & S
+     * STEP 7. check u & S & K
      */
-    printf("STEP 7. check u & S\n");
+    printf("STEP 7. check u & S & K\n");
 
     if (strcmp(client_u, server_u) == 0) {
         printf("    u is equal!\n");
@@ -146,5 +164,60 @@ int main()
         printf("    S is not equal!\n");
     }
 
+    if (strcmp(client_K, server_K) == 0) {
+        printf("    K is equal!\n");
+    }
+    else {
+        printf("    K is not equal!\n");
+    }
+
+    /**
+     * release all
+     */
+    if (s != NULL)
+    {
+        free(s);
+    }
+
+    if  (B != NULL)
+    {
+        free(B);
+    }
+
+    if  (A != NULL)
+    {
+        free(A);
+    }
+
+    if  (server_u != NULL)
+    {
+        free(server_u);
+    }
+
+    if  (server_S != NULL)
+    {
+        free(server_S);
+    }
+
+    if  (server_K != NULL)
+    {
+        free(server_K);
+    }
+
+    if  (client_u != NULL)
+    {
+        free(client_u);
+    }
+
+    if  (client_S != NULL)
+    {
+        free(client_S);
+    }
+
+    if  (client_K != NULL)
+    {
+        free(client_K);
+    }
+    
     return 0;
 }

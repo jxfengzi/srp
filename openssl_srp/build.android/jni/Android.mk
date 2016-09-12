@@ -83,4 +83,4 @@ LOCAL_SRC_FILES         := $(SRC_DIR)/test.c
 LOCAL_C_INCLUDES        := $(INC_ALL)
 LOCAL_SHARED_LIBRARIES  := srp
 LOCAL_LDLIBS            := -llog
-
+include $(BUILD_EXECUTABLE)

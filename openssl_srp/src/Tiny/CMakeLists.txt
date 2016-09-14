@@ -40,6 +40,37 @@ SET(Log_Source
 SOURCE_GROUP(TinyLog\\headers               FILES       ${Log_Header})
 SOURCE_GROUP(TinyLog\\sources               FILES       ${Log_Source})
 
+#-----------------------
+# Memory
+#-----------------------
+SET(Memory_Header
+    Memory/tiny_memory.h
+    )
+
+SET(Memory_Source
+    Memory/tiny_memory.c
+    )
+
+SOURCE_GROUP(TinyMemory\\headers            FILES       ${Memory_Header})
+SOURCE_GROUP(TinyMemory\\sources            FILES       ${Memory_Source})
+
+#-----------------------
+# Container
+#-----------------------
+SET(Container_Header
+    Container/TinyContainerListener.h
+    Container/TinyList.h
+    Container/TinyMap.h
+    Container/TinyQueue.h)
+
+SET(Container_Source
+    Container/TinyList.c
+    Container/TinyMap.c
+    Container/TinyQueue.c)
+
+SOURCE_GROUP(TinyContainer\\headers         FILES   ${Container_Header})
+SOURCE_GROUP(TinyContainer\\sources         FILES   ${Container_Source})
+
 
 #----------------------------------------------------------------------------
 # source
@@ -49,6 +80,10 @@ SET(SRC
     ${Base_Source}
     ${Log_Header}
     ${Log_Source}
+    ${Container_Header}
+    ${Container_Source}
+    ${Memory_Header}
+    ${Memory_Source}
     )
 
 #----------------------------------------------------------------------------

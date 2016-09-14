@@ -101,6 +101,8 @@ MESSAGE(STATUS "openssl_inc: ${OPENSSL_INC}")
 INCLUDE_DIRECTORIES(${OPENSSL_INC})
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/Tiny/Base)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/Tiny/Log)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/Tiny/Memory)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/Tiny/Container)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/srp)
 
 #--------------------------------------------------------------------------------------

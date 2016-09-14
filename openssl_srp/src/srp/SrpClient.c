@@ -137,7 +137,7 @@ void SrpClient_Delete(SrpClient *thiz)
     free(thiz);
 }
 
-TinyRet SrpClient_set_s(SrpClient *thiz, char *s_hex)
+TinyRet SrpClient_set_s(SrpClient *thiz, const char *s_hex)
 {
     RETURN_VAL_IF_FAIL(thiz, TINY_RET_E_ARG_NULL);
     RETURN_VAL_IF_FAIL(s_hex, TINY_RET_E_ARG_NULL);

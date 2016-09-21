@@ -19,14 +19,14 @@ static void ItemDeleteListener (void * data, void *ctx)
     SrpClient_Delete(instance);
 }
 
-JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring name, jstring password, jstring instanceId)
+JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring instanceId, jstring name, jstring password)
 {
     const char * c_name = NULL;
     const char * c_password = NULL;
     const char * c_instanceId = NULL;
     SrpClient *instance = NULL;
 
-    LOG_D(TAG, "%s", "_createInstance");
+    LOG_D(TAG, "_createInstance");
 
     c_name = (*env)->GetStringUTFChars(env, name, NULL);
     if (c_name == NULL)
@@ -49,6 +49,8 @@ JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring name, j
         return -3;
     }
 
+    LOG_D(TAG, "instanceId: %s", c_instanceId);
+
     instance = SrpClient_New(MODULUS, c_name, c_password);
     if (instance == NULL)
     {
@@ -62,15 +64,16 @@ JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring name, j
         return -5;
     }
 
-    return 0;
+    LOG_D(TAG, "_createInstance OK, instances count: %d", TinyMap_GetCount(&_instances));
 
+    return 0;
 }
 
 JNIEXPORT jint JNICALL _releaseInstance(JNIEnv *env, jobject obj, jstring instanceId)
 {
     const char * c_instanceId = NULL;
 
-    LOG_D(TAG, "%s", "_releaseInstance");
+    LOG_D(TAG, "_releaseInstance");
 
     c_instanceId = (*env)->GetStringUTFChars(env, instanceId, NULL);
     if (c_instanceId == NULL)
@@ -84,6 +87,9 @@ JNIEXPORT jint JNICALL _releaseInstance(JNIEnv *env, jobject obj, jstring instan
         LOG_E(TAG, "TinyMap_Erase Failed");
         return -2;
     }
+
+    LOG_D(TAG, "instanceId: %s", c_instanceId);
+    LOG_D(TAG, "_releaseInstance OK, instances count: %d", TinyMap_GetCount(&_instances));
 
     return 0;
 }
@@ -280,7 +286,7 @@ JNIEXPORT jstring JNICALL _compute_K(JNIEnv *env, jobject obj, jstring instanceI
     return K;
 }
 
-static const char * _theClass = "com/ouyang/srp/Client";
+static const char * _theClass = "com/ouyang/srp/SrpClient";
 static JNINativeMethod _theMethods[] =
 {
     {"createInstance", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", &_createInstance},

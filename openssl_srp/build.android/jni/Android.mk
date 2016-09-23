@@ -75,7 +75,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE            := srp
 SRC_DIR                 := ../../src/srp
 LOCAL_SRC_FILES         := $(SRC_DIR)/SrpServer.c                   \
-                           $(SRC_DIR)/SrpClient.c
+                           $(SRC_DIR)/SrpClient.c                   \
+                           $(SRC_DIR)/SrpCommon.c
 LOCAL_C_INCLUDES        := $(INC_ALL)
 LOCAL_STATIC_LIBRARIES  := libcrypto libssl libtiny
 LOCAL_LDLIBS            := -llog

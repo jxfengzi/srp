@@ -19,18 +19,22 @@ int main()
     char *server_u = NULL;
     char *server_S = NULL;
     char *server_K = NULL;
+    char *server_M1 = NULL;
     char *client_u = NULL;
     char *client_S = NULL;
     char *client_K = NULL;
+    char *client_M1 = NULL;
     size_t s_len = 0;
     size_t B_len = 0;
     size_t A_len = 0;
     size_t server_u_len = 0;
     size_t server_S_len = 0;
     size_t server_K_len = 0;
+    size_t server_M1_len = 0;
     size_t client_u_len = 0;
     size_t client_S_len = 0;
     size_t client_K_len = 0;
+    size_t client_M1_len = 0;
 
     server = SrpServer_New(MODULUS, S_USERNAME, S_PASSWORD);
     if (server == NULL)
@@ -146,9 +150,27 @@ int main()
     printf("    client K = %s\n", client_K);
 
     /**
-     * STEP 7. check u & S & K
+     * STEP 7. compute m1
+    */
+    printf("STEP 7. compute m1\n");
+    if (RET_FAILED(SrpServer_compute_M1(server, &server_M1, &server_M1_len)))
+    {
+        printf("SrpServer_compute_M1 failed\n");
+        return 0;
+    }
+    printf("    server M1 = %s\n", server_M1);
+
+    if (RET_FAILED(SrpClient_compute_M1(client, &client_M1, &client_M1_len)))
+    {
+        printf("SrpClient_compute_M1 failed\n");
+        return 0;
+    }
+    printf("    client M1 = %s\n", client_M1);
+
+    /**
+     * STEP 8. check u & S & K
      */
-    printf("STEP 7. check u & S & K\n");
+    printf("STEP 8. check u & S & K\n");
 
     if (strcmp(client_u, server_u) == 0) {
         printf("    u is equal!\n");
@@ -169,6 +191,13 @@ int main()
     }
     else {
         printf("    K is not equal!\n");
+    }
+
+    if (strcmp(client_M1, server_M1) == 0) {
+        printf("    M1 is equal!\n");
+    }
+    else {
+        printf("    M1 is not equal!\n");
     }
 
     /**
@@ -204,6 +233,11 @@ int main()
         free(server_K);
     }
 
+    if  (server_M1 != NULL)
+    {
+        free(server_M1);
+    }
+
     if  (client_u != NULL)
     {
         free(client_u);
@@ -217,6 +251,11 @@ int main()
     if  (client_K != NULL)
     {
         free(client_K);
+    }
+
+    if  (client_M1 != NULL)
+    {
+        free(client_M1);
     }
     
     return 0;

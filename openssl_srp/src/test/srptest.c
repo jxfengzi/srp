@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
 # include <openssl/err.h>
 # include <openssl/sha.h>
 # include <openssl/evp.h>
+# include <stdbool.h>
 
 static void showbn(const char *name, const BIGNUM *bn)
 {
@@ -34,6 +35,112 @@ static void showbn(const char *name, const BIGNUM *bn)
     putc('\n', stdout);
 }
 
+static void showdigest(const char *name, const unsigned char digest[SHA512_DIGEST_LENGTH])
+{
+    int i = 0;
+
+    fputs(name, stdout);
+    fputs(" = ", stdout);
+
+    for (i = 0; i < SHA512_DIGEST_LENGTH; ++i)
+    {
+        printf("%02x", digest[i]);
+        //putc(digest[i], stdout);
+    }
+    putc('\n', stdout);
+}
+
+
+static void showhex(const char *name, const unsigned char *data, size_t length)
+{
+    int i = 0;
+
+    fputs(name, stdout);
+    fputs(" = ", stdout);
+
+    for (i = 0; i < length; ++i)
+    {
+        printf("%02x", data[i]);
+        //putc(digest[i], stdout);
+    }
+    putc('\n', stdout);
+}
+
+static bool _bn_sha512(const BIGNUM *N, unsigned char digest[SHA512_DIGEST_LENGTH])
+{
+    bool ret = false;
+
+    do
+    {
+        unsigned char *tmp = NULL;
+        EVP_MD_CTX *ctx = NULL;
+        int longS = BN_num_bytes(N);
+
+        ctx = EVP_MD_CTX_new();
+        if (ctx == NULL)
+        {
+            break;
+        }
+
+        if ((tmp = OPENSSL_malloc(longS)) == NULL)
+        {
+            EVP_MD_CTX_free(ctx);
+            break;
+        }
+
+        BN_bn2bin(N, tmp);
+
+        if (!EVP_DigestInit_ex(ctx, EVP_sha512(), NULL) || !EVP_DigestUpdate(ctx, tmp, longS))
+        {
+            OPENSSL_free(tmp);
+            EVP_MD_CTX_free(ctx);
+            break;
+        }
+
+        memset(tmp, 0, longS);
+
+        if (!EVP_DigestFinal_ex(ctx, digest, NULL))
+        {
+            OPENSSL_free(tmp);
+            EVP_MD_CTX_free(ctx);
+            break;
+        }
+
+        ret = true;
+    } while (0);
+
+    return ret;
+}
+
+static bool _str_sha512(const char *str, unsigned char digest[SHA512_DIGEST_LENGTH])
+{
+    bool ret = false;
+
+    do
+    {
+        EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        if (ctx == NULL)
+        {
+            break;
+        }
+
+        if (!EVP_DigestInit_ex(ctx, EVP_sha512(), NULL) || !EVP_DigestUpdate(ctx, str, strlen(str)))
+        {
+            EVP_MD_CTX_free(ctx);
+            break;
+        }
+
+        if (!EVP_DigestFinal_ex(ctx, digest, NULL))
+        {
+            EVP_MD_CTX_free(ctx);
+            break;
+        }
+
+        ret = true;
+    } while (0);
+
+    return ret;
+}
 
 /* server & client  */
 BIGNUM *SRP_Ex_Calc_K(const BIGNUM *S)
@@ -77,6 +184,330 @@ err:
     return res;
 }
 
+BIGNUM *SRP_Ex_Calc_M1(const BIGNUM *N,
+                       const BIGNUM *g,
+                       const char *username,
+                       const BIGNUM *s,
+                       const BIGNUM *A,
+                       const BIGNUM *B,
+                       const BIGNUM *K)
+{
+    BIGNUM *m1 = NULL;
+    EVP_MD_CTX *ctx = NULL;
+    unsigned char *bin_s = NULL;
+    unsigned char *bin_A = NULL;
+    unsigned char *bin_B = NULL;
+    unsigned char *bin_K = NULL;
+
+    do
+    {
+        unsigned char digest[SHA512_DIGEST_LENGTH];
+        unsigned char h_N[SHA512_DIGEST_LENGTH];
+        unsigned char h_g[SHA512_DIGEST_LENGTH];
+        unsigned char h_I[SHA512_DIGEST_LENGTH];
+        unsigned char h_xor[SHA512_DIGEST_LENGTH];
+        size_t len_s = (size_t)BN_num_bytes(s);
+        size_t len_A = (size_t)BN_num_bytes(A);
+        size_t len_B = (size_t)BN_num_bytes(B);
+        size_t len_K = (size_t)BN_num_bytes(K);
+        int i = 0;
+
+        /**
+         * RFC 2945
+         * M = H(H(N) XOR H(g) | H(U) | s | A | B | K)
+         */
+        if (! _bn_sha512(N, h_N) || ! _bn_sha512(g, h_g) ||! _str_sha512(username, h_I))
+        {
+            break;
+        }
+
+        for (i = 0; i < SHA512_DIGEST_LENGTH; ++i)
+        {
+            h_xor[i] = h_N[i] ^ h_g[i];
+        }
+
+        bin_s = OPENSSL_malloc(len_s);
+        bin_A = OPENSSL_malloc(len_A);
+        bin_B = OPENSSL_malloc(len_B);
+        bin_K = OPENSSL_malloc(len_K);
+
+        if (bin_s == NULL || bin_A == NULL || bin_B == NULL || bin_K == NULL)
+        {
+            break;
+        }
+
+        BN_bn2bin(s, bin_s);
+        BN_bn2bin(A, bin_A);
+        BN_bn2bin(B, bin_B);
+        BN_bn2bin(K, bin_K);
+
+        ctx = EVP_MD_CTX_new();
+        if (ctx == NULL)
+        {
+            break;
+        }
+
+        if (!EVP_DigestInit_ex(ctx, EVP_sha512(), NULL))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, h_xor, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, h_I, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, bin_s, len_s))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, bin_A, len_A))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, bin_B, len_B))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, bin_K, len_K))
+        {
+            break;
+        }
+
+        if (!EVP_DigestFinal_ex(ctx, digest, NULL))
+        {
+            break;
+        }
+
+        m1 = BN_bin2bn(digest, SHA512_DIGEST_LENGTH, NULL);
+    } while (false);
+
+    if (bin_s != NULL)
+    {
+        OPENSSL_free(bin_s);
+    }
+
+    if (bin_A != NULL)
+    {
+        OPENSSL_free(bin_A);
+    }
+
+    if (bin_B != NULL)
+    {
+        OPENSSL_free(bin_B);
+    }
+
+    if (bin_K != NULL)
+    {
+        OPENSSL_free(bin_K);
+    }
+
+    if (ctx != NULL)
+    {
+        EVP_MD_CTX_free(ctx);
+    }
+
+    return m1;
+}
+
+
+#if 0
+BIGNUM * _SRP_Ex_Calc_M1(const BIGNUM *N,
+                       const BIGNUM *g,
+                       const char *username,
+                       const BIGNUM *s,
+                       const BIGNUM *A,
+                       const BIGNUM *B,
+                       const BIGNUM *K)
+{
+    BIGNUM *m1 = NULL;
+    unsigned char *bin_s = NULL;
+    unsigned char *bin_A = NULL;
+    unsigned char *bin_B = NULL;
+    unsigned char *bin_K = NULL;
+
+    do
+    {
+        SHA512_CTX ctx;
+
+        unsigned char digest[SHA512_DIGEST_LENGTH];
+        unsigned char h_N[SHA512_DIGEST_LENGTH];
+        unsigned char h_g[SHA512_DIGEST_LENGTH];
+        unsigned char h_I[SHA512_DIGEST_LENGTH];
+        unsigned char h_xor[SHA512_DIGEST_LENGTH];
+        size_t len_s = (size_t)BN_num_bytes(s);
+        size_t len_A = (size_t)BN_num_bytes(A);
+        size_t len_B = (size_t)BN_num_bytes(B);
+        size_t len_K = (size_t)BN_num_bytes(K);
+        int i = 0;
+
+        printf("------------------------- username: %s\n", username);
+        showbn("- N", N);
+        showbn("- g", g);
+        showbn("- s", s);
+        showbn("- A", A);
+        showbn("- B", B);
+        showbn("- K", K);
+
+        /**
+         * RFC 2945
+         * M = H(H(N) XOR H(g) | H(U) | s | A | B | K)
+         */
+        if (! _bn_sha512(N, h_N) || ! _bn_sha512(g, h_g) ||! _str_sha512(username, h_I))
+        {
+            break;
+        }
+
+        showdigest("h_N", h_N);
+        showdigest("h_g", h_g);
+        showdigest("h_I", h_I);
+
+        for (i = 0; i < SHA512_DIGEST_LENGTH; ++i)
+        {
+            h_xor[i] = h_N[i] ^ h_g[i];
+        }
+
+        showdigest("h_xor", h_xor);
+
+        bin_s = OPENSSL_malloc(len_s);
+        bin_A = OPENSSL_malloc(len_A);
+        bin_B = OPENSSL_malloc(len_B);
+        bin_K = OPENSSL_malloc(len_K);
+
+        if (bin_s == NULL || bin_A == NULL || bin_B == NULL || bin_K == NULL)
+        {
+            break;
+        }
+
+        BN_bn2bin(s, bin_s);
+        BN_bn2bin(A, bin_A);
+        BN_bn2bin(B, bin_B);
+        BN_bn2bin(K, bin_K);
+
+        SHA512_Init(&ctx);
+        SHA512_Update(&ctx, h_xor, SHA512_DIGEST_LENGTH);
+
+        if (!EVP_DigestInit(ctx, EVP_sha512()))
+//        if (!EVP_DigestInit_ex(ctx, EVP_sha512(), NULL))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, h_xor, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        //--------------------------------
+//        if (EVP_DigestFinal(ctx, digest, NULL))
+//        {
+//            showdigest("D 1", digest);
+//            break;
+//        }
+
+        if (!EVP_DigestUpdate(ctx, h_I, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        //--------------------------------
+//        if (EVP_DigestFinal(ctx, digest, NULL))
+//        {
+//            showdigest("D 2", digest);
+//            break;
+//        }
+
+        showhex("str_s", str_s, len_s);
+
+        if (!EVP_DigestUpdate(ctx, str_s, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        //--------------------------------
+        if (EVP_DigestFinal(ctx, digest, NULL))
+        {
+            showdigest("D 3", digest);
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, str_A, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        //--------------------------------
+        if (EVP_DigestFinal(ctx, digest, NULL))
+        {
+            showdigest("D 4", digest);
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, str_B, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        //--------------------------------
+        if (EVP_DigestFinal(ctx, digest, NULL))
+        {
+            showdigest("D 5", digest);
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, str_K, SHA512_DIGEST_LENGTH))
+        {
+            break;
+        }
+
+        if (!EVP_DigestFinal(ctx, digest, NULL))
+//        if (!EVP_DigestFinal_ex(ctx, digest, NULL))
+        {
+            break;
+        }
+
+        showdigest("digest", digest);
+
+        m1 = BN_bin2bn(digest, SHA512_DIGEST_LENGTH, NULL);
+    } while (false);
+
+    if (str_s != NULL)
+    {
+        OPENSSL_free(str_s);
+    }
+
+    if (str_A != NULL)
+    {
+        OPENSSL_free(str_A);
+    }
+
+    if (str_B != NULL)
+    {
+        OPENSSL_free(str_B);
+    }
+
+    if (str_K != NULL)
+    {
+        OPENSSL_free(str_K);
+    }
+
+    if (ctx != NULL)
+    {
+        EVP_MD_CTX_free(ctx);
+    }
+
+    return m1;
+}
+#endif
+
 # define RANDOM_SIZE 32         /* use 256 bits on each side */
 
 static int run_srp(const char *username, const char *client_pass,
@@ -94,6 +525,7 @@ static int run_srp(const char *username, const char *client_pass,
     BIGNUM *Kclient = NULL;
     BIGNUM *Kserver = NULL;
     BIGNUM *K = NULL;
+    BIGNUM *M1 = NULL;
     unsigned char rand_tmp[RANDOM_SIZE];
 
     /* use builtin 1024-bit params */
@@ -281,6 +713,22 @@ static int run_srp(const char *username, const char *client_pass,
         ret = 1;
     }
 
+//    printf("-----------------------------------------\n");
+    M1 = SRP_Ex_Calc_M1(GN->N, GN->g, username, s, A, B, K);
+    if (M1 != NULL)
+    {
+        showbn("M1", M1);
+    }
+
+    BN_clear_free(M1);
+    M1 = NULL;
+
+//    printf("-----------------------------------------\n");
+//    M1 = SRP_Ex_Calc_M1(GN->N, GN->g, username, s, A, B, K);
+//    if (M1 != NULL)
+//    {
+//        showbn("M1", M1);
+//    }
 
 #endif
 

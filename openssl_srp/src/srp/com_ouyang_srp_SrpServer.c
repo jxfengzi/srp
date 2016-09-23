@@ -19,7 +19,7 @@ static void ItemDeleteListener (void * data, void *ctx)
     SrpServer_Delete(instance);
 }
 
-JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring name, jstring password, jstring instanceId)
+JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring instanceId, jstring name, jstring password)
 {
     const char * c_name = NULL;
     const char * c_password = NULL;
@@ -49,6 +49,8 @@ JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring name, j
         return -3;
     }
 
+    LOG_D(TAG, "instanceId: %s name: %s password: %s", c_instanceId, c_name, c_password);
+
     instance = SrpServer_New(MODULUS, c_name, c_password);
     if (instance == NULL)
     {
@@ -61,6 +63,8 @@ JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring name, j
         LOG_E(TAG, "TinyMap_Insert Failed");
         return -5;
     }
+
+    LOG_D(TAG, "_createInstance OK, instances count: %d", TinyMap_GetCount(&_instances));
 
     return 0;
 }
@@ -83,6 +87,9 @@ JNIEXPORT jint JNICALL _releaseInstance(JNIEnv *env, jobject obj, jstring instan
         LOG_E(TAG, "TinyMap_Erase Failed");
         return -2;
     }
+
+    LOG_D(TAG, "instanceId: %s", c_instanceId);
+    LOG_D(TAG, "_releaseInstance OK, instances count: %d", TinyMap_GetCount(&_instances));
 
     return 0;
 }
@@ -107,7 +114,7 @@ JNIEXPORT jstring JNICALL _generate_s(JNIEnv *env, jobject obj, jstring instance
     instance = (SrpServer *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -143,7 +150,7 @@ JNIEXPORT jstring JNICALL _generate_B(JNIEnv *env, jobject obj, jstring instance
     instance = (SrpServer *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -187,7 +194,7 @@ JNIEXPORT jstring JNICALL _compute_u(JNIEnv *env, jobject obj, jstring instanceI
     instance = (SrpServer *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -223,7 +230,7 @@ JNIEXPORT jstring JNICALL _compute_S(JNIEnv *env, jobject obj, jstring instanceI
     instance = (SrpServer *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -259,13 +266,13 @@ JNIEXPORT jstring JNICALL _compute_K(JNIEnv *env, jobject obj, jstring instanceI
     instance = (SrpServer *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
     if (RET_FAILED(SrpServer_compute_K(instance, &hex, &len)))
     {
-        LOG_E(TAG, "compute_S failed");
+        LOG_E(TAG, "compute_K failed");
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -273,6 +280,42 @@ JNIEXPORT jstring JNICALL _compute_K(JNIEnv *env, jobject obj, jstring instanceI
     free(hex);
 
     return K;
+}
+
+JNIEXPORT jstring JNICALL _compute_M1(JNIEnv *env, jobject obj, jstring instanceId)
+{
+    const char * c_instanceId = NULL;
+    SrpServer *instance = NULL;
+    char *hex = NULL;
+    size_t len = 0;
+    jstring M1;
+
+    LOG_D(TAG, "%s", "_compute_M1");
+
+    c_instanceId = (*env)->GetStringUTFChars(env, instanceId, NULL);
+    if (c_instanceId == NULL)
+    {
+        LOG_E(TAG, "instanceId invalid");
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    instance = (SrpServer *)TinyMap_GetValue(&_instances, c_instanceId);
+    if (instance == NULL)
+    {
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    if (RET_FAILED(SrpServer_compute_M1(instance, &hex, &len)))
+    {
+        LOG_E(TAG, "compute_M1 failed");
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    M1 = (*env)->NewStringUTF(env, hex);
+    free(hex);
+
+    return M1;
 }
 
 static const char * _theClass = "com/ouyang/srp/SrpServer";
@@ -286,6 +329,7 @@ static JNINativeMethod _theMethods[] =
     {"compute_u", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", &_compute_u},
     {"compute_S", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_S},
     {"compute_K", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_K},
+    {"compute_M1", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_M1},
 };
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved)

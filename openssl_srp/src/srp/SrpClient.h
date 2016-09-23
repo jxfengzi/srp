@@ -33,6 +33,7 @@ SRP_API TinyRet SrpClient_generate_A(SrpClient *thiz, char **A_hex, size_t *A_le
 SRP_API TinyRet SrpClient_compute_u(SrpClient *thiz, const char *B_hex, char **u_hex, size_t *u_len);
 SRP_API TinyRet SrpClient_compute_S(SrpClient *thiz, char **S_hex, size_t *S_len);
 SRP_API TinyRet SrpClient_compute_K(SrpClient *thiz, char **k_hex, size_t *K_len);
+SRP_API TinyRet SrpClient_compute_M1(SrpClient *thiz, char **M1_hex, size_t *M1_len);
 
 
 TINY_END_DECLS

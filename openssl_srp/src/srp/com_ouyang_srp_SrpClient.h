@@ -63,6 +63,15 @@ JNIEXPORT jstring JNICALL Java_com_ouyang_srp_SrpClient_compute_1S
 JNIEXPORT jstring JNICALL Java_com_ouyang_srp_SrpClient_compute_1K
   (JNIEnv *, jobject, jstring);
 
+/*
+ * Class:     com_ouyang_srp_SrpClient
+ * Method:    compute_M1
+ * Signature: (Ljava/lang/String;)Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_com_ouyang_srp_SrpClient_compute_1M1
+    (JNIEnv *, jobject, jstring);
+
+
 #ifdef __cplusplus
 }
 #endif

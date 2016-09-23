@@ -32,6 +32,7 @@ SRP_API TinyRet SrpServer_generate_B(SrpServer *thiz, char **B_hex, size_t *B_le
 SRP_API TinyRet SrpServer_compute_u(SrpServer *thiz, const char *A_hex, char **u_hex, size_t *u_len);
 SRP_API TinyRet SrpServer_compute_S(SrpServer *thiz, char **S_hex, size_t *S_len);
 SRP_API TinyRet SrpServer_compute_K(SrpServer *thiz, char **K_hex, size_t *K_len);
+SRP_API TinyRet SrpServer_compute_M1(SrpServer *thiz, char **M1_hex, size_t *M1_len);
 
 
 TINY_END_DECLS

@@ -13,6 +13,7 @@
  */
 
 #include "SrpClient.h"
+#include "SrpCommon.h"
 #include <openssl/srp.h>
 #include <openssl/rand.h>
 #include "tiny_log.h"
@@ -34,6 +35,7 @@ struct _SrpClient
     BIGNUM     * u;
     BIGNUM     * S;
     BIGNUM     * K;
+    BIGNUM     * M1;
 };
 
 static TinyRet SrpClient_Construct(SrpClient *thiz, const char *id, const char *username, const char *password)
@@ -60,6 +62,11 @@ static TinyRet SrpClient_Construct(SrpClient *thiz, const char *id, const char *
 static void SrpClient_Dispose(SrpClient *thiz)
 {
     RETURN_IF_FAIL(thiz);
+
+    if (thiz->M1 != NULL)
+    {
+        BN_clear_free(thiz->M1);
+    }
 
     if (thiz->K != NULL)
     {
@@ -222,15 +229,21 @@ TinyRet SrpClient_compute_u(SrpClient *thiz, const char *B_hex, char **u_hex, si
         return TINY_RET_E_ARG_INVALID;
     }
 
+    if (thiz->u != NULL)
+    {
+        BN_clear_free(thiz->u);
+        thiz->u = NULL;
+    }
+
     thiz->u = SRP_Calc_u(thiz->A, thiz->B, thiz->GN->N);
     if (thiz->u == NULL)
     {
-        LOG_E(TAG, "Failed to compute U");
+        LOG_E(TAG, "Failed to compute u");
         return TINY_RET_E_INTERNAL;
     }
 
     {
-        char *hex = BN_bn2hex(thiz->B);
+        char *hex = BN_bn2hex(thiz->u);
         *u_len = strlen(hex);
         *u_hex = malloc(*u_len + 1);
         memset(*u_hex, 0, *u_len + 1);
@@ -265,17 +278,26 @@ TinyRet SrpClient_compute_S(SrpClient *thiz, char **S_hex, size_t *S_len)
         return TINY_RET_E_INTERNAL;
     }
 
-    thiz->x = SRP_Calc_x(thiz->s, thiz->username, thiz->password);
     if (thiz->x == NULL)
     {
-        LOG_E(TAG, "Failed to compute x");
-        return TINY_RET_E_INTERNAL;
+        thiz->x = SRP_Calc_x(thiz->s, thiz->username, thiz->password);
+        if (thiz->x == NULL)
+        {
+            LOG_E(TAG, "Failed to compute x");
+            return TINY_RET_E_INTERNAL;
+        }
+    }
+
+    if (thiz->S != NULL)
+    {
+        BN_clear_free(thiz->S);
+        thiz->S = NULL;
     }
 
     thiz->S = SRP_Calc_client_key(thiz->GN->N, thiz->B, thiz->GN->g, thiz->x, thiz->a, thiz->u);
     if (thiz->S == NULL)
     {
-        LOG_E(TAG, "S is NULL");
+        LOG_E(TAG, "Failed to compute S");
         return TINY_RET_E_INTERNAL;
     }
 
@@ -291,55 +313,6 @@ TinyRet SrpClient_compute_S(SrpClient *thiz, char **S_hex, size_t *S_len)
     return TINY_RET_OK;
 }
 
-# include <openssl/sha.h>
-# include <openssl/evp.h>
-static BIGNUM *SRP_Ex_Calc_K(const BIGNUM *S)
-{
-    BIGNUM *res = NULL;
-
-    do
-    {
-        unsigned char digest[SHA512_DIGEST_LENGTH];
-        unsigned char *tmp = NULL;
-        EVP_MD_CTX *ctxt = NULL;
-        int longS = BN_num_bytes(S);
-
-        ctxt = EVP_MD_CTX_new();
-        if (ctxt == NULL)
-        {
-            break;
-        }
-
-        if ((tmp = OPENSSL_malloc(longS)) == NULL)
-        {
-            EVP_MD_CTX_free(ctxt);
-            break;
-        }
-
-        BN_bn2bin(S, tmp);
-
-        if (!EVP_DigestInit_ex(ctxt, EVP_sha512(), NULL) || !EVP_DigestUpdate(ctxt, tmp, longS))
-        {
-            OPENSSL_free(tmp);
-            EVP_MD_CTX_free(ctxt);
-            break;
-        }
-
-        memset(tmp, 0, longS);
-
-        if (!EVP_DigestFinal_ex(ctxt, digest, NULL))
-        {
-            OPENSSL_free(tmp);
-            EVP_MD_CTX_free(ctxt);
-            break;
-        }
-
-        res = BN_bin2bn(digest, sizeof(digest), NULL);
-    } while (0);
-
-    return res;
-}
-
 TinyRet SrpClient_compute_K(SrpClient *thiz, char **K_hex, size_t *K_len)
 {
     RETURN_VAL_IF_FAIL(thiz, TINY_RET_E_ARG_NULL);
@@ -352,10 +325,16 @@ TinyRet SrpClient_compute_K(SrpClient *thiz, char **K_hex, size_t *K_len)
         return TINY_RET_E_INTERNAL;
     }
 
+    if (thiz->K != NULL)
+    {
+        BN_clear_free(thiz->K);
+        thiz->K = NULL;
+    }
+
     thiz->K = SRP_Ex_Calc_K(thiz->S);
     if (thiz->K == NULL)
     {
-        LOG_E(TAG, "K is NULL");
+        LOG_E(TAG, "Failed to compute K");
         return TINY_RET_E_INTERNAL;
     }
 
@@ -365,6 +344,61 @@ TinyRet SrpClient_compute_K(SrpClient *thiz, char **K_hex, size_t *K_len)
         *K_hex = malloc(*K_len + 1);
         memset(*K_hex, 0, *K_len + 1);
         strncpy(*K_hex, hex, *K_len);
+        OPENSSL_free(hex);
+    }
+
+    return TINY_RET_OK;
+}
+
+TinyRet SrpClient_compute_M1(SrpClient *thiz, char **M1_hex, size_t *M1_len)
+{
+    RETURN_VAL_IF_FAIL(thiz, TINY_RET_E_ARG_NULL);
+    RETURN_VAL_IF_FAIL(M1_hex, TINY_RET_E_ARG_NULL);
+    RETURN_VAL_IF_FAIL(M1_len, TINY_RET_E_ARG_NULL);
+
+    if (thiz->s == NULL)
+    {
+        LOG_E(TAG, "s is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    if (thiz->A == NULL)
+    {
+        LOG_E(TAG, "A is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    if (thiz->B == NULL)
+    {
+        LOG_E(TAG, "B is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    if (thiz->K == NULL)
+    {
+        LOG_E(TAG, "K is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    if (thiz->M1 != NULL)
+    {
+        BN_clear_free(thiz->M1);
+        thiz->M1 = NULL;
+    }
+
+    thiz->M1 = SRP_Ex_Calc_M1(thiz->GN->N, thiz->GN->g, thiz->username, thiz->s, thiz->A, thiz->B, thiz->K);
+    if (thiz->M1 == NULL)
+    {
+        LOG_E(TAG, "Failed to compute M1");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    {
+        char *hex = BN_bn2hex(thiz->M1);
+        *M1_len = strlen(hex);
+        *M1_hex = malloc(*M1_len + 1);
+        memset(*M1_hex, 0, *M1_len + 1);
+        strncpy(*M1_hex, hex, *M1_len);
         OPENSSL_free(hex);
     }
 

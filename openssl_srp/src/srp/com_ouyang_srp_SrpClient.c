@@ -49,7 +49,7 @@ JNIEXPORT jint JNICALL _createInstance(JNIEnv *env, jobject obj, jstring instanc
         return -3;
     }
 
-    LOG_D(TAG, "instanceId: %s", c_instanceId);
+    LOG_D(TAG, "instanceId: %s name: %s password: %s", c_instanceId, c_name, c_password);
 
     instance = SrpClient_New(MODULUS, c_name, c_password);
     if (instance == NULL)
@@ -121,7 +121,7 @@ JNIEXPORT void JNICALL _set_s(JNIEnv *env, jobject obj, jstring instanceId, jstr
     instance = (SrpClient *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return;
     }
 
@@ -154,7 +154,7 @@ JNIEXPORT jstring JNICALL _generate_A(JNIEnv *env, jobject obj, jstring instance
     instance = (SrpClient *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -198,7 +198,7 @@ JNIEXPORT jstring JNICALL _compute_u(JNIEnv *env, jobject obj, jstring instanceI
     instance = (SrpClient *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -234,7 +234,7 @@ JNIEXPORT jstring JNICALL _compute_S(JNIEnv *env, jobject obj, jstring instanceI
     instance = (SrpClient *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
@@ -258,7 +258,7 @@ JNIEXPORT jstring JNICALL _compute_K(JNIEnv *env, jobject obj, jstring instanceI
     size_t len = 0;
     jstring K;
 
-    LOG_D(TAG, "%s", "_generate_A");
+    LOG_D(TAG, "%s", "_compute_K");
 
     c_instanceId = (*env)->GetStringUTFChars(env, instanceId, NULL);
     if (c_instanceId == NULL)
@@ -270,13 +270,13 @@ JNIEXPORT jstring JNICALL _compute_K(JNIEnv *env, jobject obj, jstring instanceI
     instance = (SrpClient *)TinyMap_GetValue(&_instances, c_instanceId);
     if (instance == NULL)
     {
-        LOG_E(TAG, "instance not found");
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
         return (*env)->NewStringUTF(env, STR_NULL);
     }
 
     if (RET_FAILED(SrpClient_compute_K(instance, &hex, &len)))
     {
-        LOG_E(TAG, "generate_K failed");
+        LOG_E(TAG, "compute_K failed");
         return (*env)->NewStringUTF(env, STR_NULL);
     }
     
@@ -284,6 +284,42 @@ JNIEXPORT jstring JNICALL _compute_K(JNIEnv *env, jobject obj, jstring instanceI
     free(hex);
 
     return K;
+}
+
+JNIEXPORT jstring JNICALL _compute_M1(JNIEnv *env, jobject obj, jstring instanceId)
+{
+    const char * c_instanceId = NULL;
+    SrpClient *instance = NULL;
+    char *hex = NULL;
+    size_t len = 0;
+    jstring M1;
+
+    LOG_D(TAG, "%s", "_compute_M1");
+
+    c_instanceId = (*env)->GetStringUTFChars(env, instanceId, NULL);
+    if (c_instanceId == NULL)
+    {
+        LOG_E(TAG, "instanceId invalid");
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    instance = (SrpClient *)TinyMap_GetValue(&_instances, c_instanceId);
+    if (instance == NULL)
+    {
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    if (RET_FAILED(SrpClient_compute_M1(instance, &hex, &len)))
+    {
+        LOG_E(TAG, "compute_M1 failed");
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    M1 = (*env)->NewStringUTF(env, hex);
+    free(hex);
+
+    return M1;
 }
 
 static const char * _theClass = "com/ouyang/srp/SrpClient";
@@ -296,6 +332,7 @@ static JNINativeMethod _theMethods[] =
     {"compute_u", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", &_compute_u},
     {"compute_S", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_S},
     {"compute_K", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_K},
+    {"compute_M1", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_M1},
 };
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved)

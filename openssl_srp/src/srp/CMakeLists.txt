@@ -6,11 +6,13 @@
 
 SET(SRC_Header
     srp_api.h
+    SrpCommon.h
     SrpClient.h
     SrpServer.h
     )
 
 SET(SRC_Source
+    SrpCommon.c
     SrpClient.c
     SrpServer.c
     )

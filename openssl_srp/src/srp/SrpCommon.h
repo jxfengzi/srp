@@ -22,12 +22,17 @@ TINY_BEGIN_DECLS
 
 
 BIGNUM *SRP_Ex_Calc_K(const BIGNUM *S);
+
 BIGNUM *SRP_Ex_Calc_M1(const BIGNUM *N,
                        const BIGNUM *g,
                        const char *username,
                        const BIGNUM *s,
                        const BIGNUM *A,
                        const BIGNUM *B,
+                       const BIGNUM *K);
+
+BIGNUM *SRP_Ex_Calc_M2(const BIGNUM *A,
+                       const BIGNUM *M1,
                        const BIGNUM *K);
 
 

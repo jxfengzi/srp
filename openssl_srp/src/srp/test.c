@@ -20,10 +20,12 @@ int main()
     char *server_S = NULL;
     char *server_K = NULL;
     char *server_M1 = NULL;
+    char *server_M2 = NULL;
     char *client_u = NULL;
     char *client_S = NULL;
     char *client_K = NULL;
     char *client_M1 = NULL;
+    char *client_M2 = NULL;
     size_t s_len = 0;
     size_t B_len = 0;
     size_t A_len = 0;
@@ -31,10 +33,12 @@ int main()
     size_t server_S_len = 0;
     size_t server_K_len = 0;
     size_t server_M1_len = 0;
+    size_t server_M2_len = 0;
     size_t client_u_len = 0;
     size_t client_S_len = 0;
     size_t client_K_len = 0;
     size_t client_M1_len = 0;
+    size_t client_M2_len = 0;
 
     server = SrpServer_New(MODULUS, S_USERNAME, S_PASSWORD);
     if (server == NULL)
@@ -150,9 +154,9 @@ int main()
     printf("    client K = %s\n", client_K);
 
     /**
-     * STEP 7. compute m1
+     * STEP 7. compute m1 & m2
     */
-    printf("STEP 7. compute m1\n");
+    printf("STEP 7. compute m1 & m2\n");
     if (RET_FAILED(SrpServer_compute_M1(server, &server_M1, &server_M1_len)))
     {
         printf("SrpServer_compute_M1 failed\n");
@@ -166,6 +170,20 @@ int main()
         return 0;
     }
     printf("    client M1 = %s\n", client_M1);
+
+    if (RET_FAILED(SrpServer_compute_M2(server, &server_M2, &server_M2_len)))
+    {
+        printf("SrpServer_compute_M2 failed\n");
+        return 0;
+    }
+    printf("    server M2 = %s\n", server_M2);
+
+    if (RET_FAILED(SrpClient_compute_M2(client, &client_M2, &client_M2_len)))
+    {
+        printf("SrpClient_compute_M2 failed\n");
+        return 0;
+    }
+    printf("    client M2 = %s\n", client_M1);
 
     /**
      * STEP 8. check u & S & K
@@ -198,6 +216,13 @@ int main()
     }
     else {
         printf("    M1 is not equal!\n");
+    }
+
+    if (strcmp(client_M2, server_M2) == 0) {
+        printf("    M2 is equal!\n");
+    }
+    else {
+        printf("    M2 is not equal!\n");
     }
 
     /**

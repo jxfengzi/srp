@@ -242,3 +242,90 @@ BIGNUM *SRP_Ex_Calc_M1(const BIGNUM *N,
 
     return m1;
 }
+
+BIGNUM *SRP_Ex_Calc_M2(const BIGNUM *A,
+                       const BIGNUM *M1,
+                       const BIGNUM *K)
+{
+    BIGNUM *m2 = NULL;
+    EVP_MD_CTX *ctx = NULL;
+    unsigned char *bin_A = NULL;
+    unsigned char *bin_M1 = NULL;
+    unsigned char *bin_K = NULL;
+
+    do
+    {
+        unsigned char digest[SHA512_DIGEST_LENGTH];
+        size_t len_A = (size_t)BN_num_bytes(A);
+        size_t len_M1 = (size_t)BN_num_bytes(M1);
+        size_t len_K = (size_t)BN_num_bytes(K);
+
+        bin_A = OPENSSL_malloc(len_A);
+        bin_M1 = OPENSSL_malloc(len_M1);
+        bin_K = OPENSSL_malloc(len_K);
+
+        if (bin_A == NULL || bin_M1 == NULL || bin_K == NULL)
+        {
+            break;
+        }
+
+        BN_bn2bin(A, bin_A);
+        BN_bn2bin(M1, bin_M1);
+        BN_bn2bin(K, bin_K);
+
+        ctx = EVP_MD_CTX_new();
+        if (ctx == NULL)
+        {
+            break;
+        }
+
+        if (!EVP_DigestInit_ex(ctx, EVP_sha512(), NULL))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, bin_A, len_A))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, bin_M1, len_M1))
+        {
+            break;
+        }
+
+        if (!EVP_DigestUpdate(ctx, bin_K, len_K))
+        {
+            break;
+        }
+
+        if (!EVP_DigestFinal_ex(ctx, digest, NULL))
+        {
+            break;
+        }
+
+        m2 = BN_bin2bn(digest, SHA512_DIGEST_LENGTH, NULL);
+    } while (false);
+
+    if (bin_A != NULL)
+    {
+        OPENSSL_free(bin_A);
+    }
+
+    if (bin_M1 != NULL)
+    {
+        OPENSSL_free(bin_M1);
+    }
+
+    if (bin_K != NULL)
+    {
+        OPENSSL_free(bin_K);
+    }
+
+    if (ctx != NULL)
+    {
+        EVP_MD_CTX_free(ctx);
+    }
+
+    return m2;
+}

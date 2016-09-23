@@ -322,7 +322,44 @@ JNIEXPORT jstring JNICALL _compute_M1(JNIEnv *env, jobject obj, jstring instance
     return M1;
 }
 
+JNIEXPORT jstring JNICALL _compute_M2(JNIEnv *env, jobject obj, jstring instanceId)
+{
+    const char * c_instanceId = NULL;
+    SrpClient *instance = NULL;
+    char *hex = NULL;
+    size_t len = 0;
+    jstring M2;
+
+    LOG_D(TAG, "%s", "_compute_M2");
+
+    c_instanceId = (*env)->GetStringUTFChars(env, instanceId, NULL);
+    if (c_instanceId == NULL)
+    {
+        LOG_E(TAG, "instanceId invalid");
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    instance = (SrpClient *)TinyMap_GetValue(&_instances, c_instanceId);
+    if (instance == NULL)
+    {
+        LOG_E(TAG, "instance not found: %s", c_instanceId);
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    if (RET_FAILED(SrpClient_compute_M2(instance, &hex, &len)))
+    {
+        LOG_E(TAG, "compute_M2 failed");
+        return (*env)->NewStringUTF(env, STR_NULL);
+    }
+
+    M2 = (*env)->NewStringUTF(env, hex);
+    free(hex);
+
+    return M2;
+}
+
 static const char * _theClass = "com/ouyang/srp/SrpClient";
+
 static JNINativeMethod _theMethods[] =
 {
     {"createInstance", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", &_createInstance},
@@ -333,6 +370,7 @@ static JNINativeMethod _theMethods[] =
     {"compute_S", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_S},
     {"compute_K", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_K},
     {"compute_M1", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_M1},
+    {"compute_M2", "(Ljava/lang/String;)Ljava/lang/String;", &_compute_M2},
 };
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved)

@@ -36,6 +36,7 @@ struct _SrpServer
     BIGNUM     * S;
     BIGNUM     * K;
     BIGNUM     * M1;
+    BIGNUM     * M2;
 };
 
 static TinyRet SrpServer_Construct(SrpServer *thiz, const char *id, const char *username, const char *password)
@@ -62,6 +63,11 @@ static TinyRet SrpServer_Construct(SrpServer *thiz, const char *id, const char *
 static void SrpServer_Dispose(SrpServer *thiz)
 {
     RETURN_IF_FAIL(thiz);
+
+    if (thiz->M2 != NULL)
+    {
+        BN_clear_free(thiz->M2);
+    }
 
     if (thiz->M1 != NULL)
     {
@@ -397,6 +403,55 @@ TinyRet SrpServer_compute_M1(SrpServer *thiz, char **M1_hex, size_t *M1_len)
         *M1_hex = malloc(*M1_len + 1);
         memset(*M1_hex, 0, *M1_len + 1);
         strncpy(*M1_hex, hex, *M1_len);
+        OPENSSL_free(hex);
+    }
+
+    return TINY_RET_OK;
+}
+
+TinyRet SrpServer_compute_M2(SrpServer *thiz, char **M2_hex, size_t *M2_len)
+{
+    RETURN_VAL_IF_FAIL(thiz, TINY_RET_E_ARG_NULL);
+    RETURN_VAL_IF_FAIL(M2_hex, TINY_RET_E_ARG_NULL);
+    RETURN_VAL_IF_FAIL(M2_len, TINY_RET_E_ARG_NULL);
+
+    if (thiz->A == NULL)
+    {
+        LOG_E(TAG, "A is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    if (thiz->M1 == NULL)
+    {
+        LOG_E(TAG, "M1 is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    if (thiz->K == NULL)
+    {
+        LOG_E(TAG, "K is NULL");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    if (thiz->M2 != NULL)
+    {
+        BN_clear_free(thiz->M2);
+        thiz->M2 = NULL;
+    }
+
+    thiz->M2 = SRP_Ex_Calc_M2(thiz->A, thiz->M1, thiz->K);
+    if (thiz->M2 == NULL)
+    {
+        LOG_E(TAG, "Failed to compute M2");
+        return TINY_RET_E_INTERNAL;
+    }
+
+    {
+        char *hex = BN_bn2hex(thiz->M2);
+        *M2_len = strlen(hex);
+        *M2_hex = malloc(*M2_len + 1);
+        memset(*M2_hex, 0, *M2_len + 1);
+        strncpy(*M2_hex, hex, *M2_len);
         OPENSSL_free(hex);
     }
 
